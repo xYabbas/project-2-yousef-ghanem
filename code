@@ -1,0 +1,135 @@
+#include <iostream>
+#include <iomanip>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+
+using namespace std;
+
+#define DBG 1
+#define DRAM_SIZE (64*1024*1024)
+#define CACHE_SIZE (64*1024)
+
+// Define cache line structure
+struct CacheLine {
+    bool valid;
+    unsigned int tag;
+    CacheLine() : valid(false), tag(0) {}
+};
+
+// Define cache structure
+struct Cache {
+    int lineSize;
+    int numLines;
+    vector<CacheLine> lines;
+
+    Cache(int lineSize) : lineSize(lineSize) {
+        numLines = CACHE_SIZE / lineSize;
+        lines.resize(numLines);
+    }
+};
+
+// Enumerate cache result types
+enum cacheResType { MISS = 0, HIT = 1 };
+
+// Random number generator
+unsigned int m_w = 0xABABAB55;    // must not be zero, nor 0x464fffff
+unsigned int m_z = 0x05080902;    // must not be zero, nor 0x9068ffff
+unsigned int rand_() {
+    m_z = 36969 * (m_z & 65535) + (m_z >> 16);
+    m_w = 18000 * (m_w & 65535) + (m_w >> 16);
+    return (m_z << 16) + m_w;  // 32-bit result
+}
+
+// Memory Generators
+unsigned int memGen1() {
+    static unsigned int addr = 0;
+    return (addr++) % DRAM_SIZE;
+}
+
+unsigned int memGen2() {
+    return rand_() % (24 * 1024);
+}
+
+unsigned int memGen3() {
+    return rand_() % DRAM_SIZE;
+}
+
+unsigned int memGen4() {
+    static unsigned int addr = 0;
+    return (addr++) % (4 * 1024);
+}
+
+unsigned int memGen5() {
+    static unsigned int addr = 0;
+    return (addr++) % (1024 * 64);
+}
+
+unsigned int memGen6() {
+    static unsigned int addr = 0;
+    return (addr += 32) % (64 * 4 * 1024);
+}
+
+// Direct Mapped Cache Simulator
+cacheResType cacheSimDM(Cache& cache, unsigned int addr) {
+    unsigned int index = (addr / cache.lineSize) % cache.numLines;
+    unsigned int tag = addr / (cache.lineSize * cache.numLines);
+
+    if (cache.lines[index].valid && cache.lines[index].tag == tag) {
+        return HIT;
+    }
+    else {
+        cache.lines[index].valid = true;
+        cache.lines[index].tag = tag;
+        return MISS;
+    }
+}
+
+// Fully Associative Cache Simulator
+cacheResType cacheSimFA(Cache& cache, unsigned int addr) {
+    unsigned int tag = addr / cache.lineSize;
+
+    for (auto& line : cache.lines) {
+        if (line.valid && line.tag == tag) {
+            return HIT;
+        }
+    }
+
+    // If miss, replace a random line
+    int randIndex = rand_() % cache.numLines;
+    cache.lines[randIndex].valid = true;
+    cache.lines[randIndex].tag = tag;
+    return MISS;
+}
+#define		NO_OF_Iterations	1000000
+// Main Function
+
+int main() {
+    unsigned int hit = 0;
+    cacheResType r;
+
+    // Cache with line size 16 bytes (you can change this)
+    Cache cacheDM(128);
+    Cache cacheFA(128);
+
+    // Direct Mapped Cache Simulation
+    cout << "Direct Mapped Cache Simulator\n";
+    for (int inst = 0; inst < NO_OF_Iterations; inst++) {
+        unsigned int addr = memGen6();
+        r = cacheSimDM(cacheDM, addr);
+        if (r == HIT) hit++;
+    }
+    cout << "Hits: " << hit << "\nMisses: " << NO_OF_Iterations - hit << "\n";
+
+    hit = 0;  // Reset hit count for Fully Associative Cache Simulation
+    // Fully Associative Cache Simulation
+    cout << "Fully Associative Cache Simulator\n";
+    for (int inst = 0; inst < NO_OF_Iterations; inst++) {
+        unsigned int addr = memGen6();
+        r = cacheSimFA(cacheFA, addr);
+        if (r == HIT) hit++;
+    }
+    cout << "Hits: " << hit << "\nMisses: " << NO_OF_Iterations - hit << "\n";
+
+    return 0;
+}
