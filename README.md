@@ -1,1 +1,2 @@
-i change the line number and the memGen# and run the code then copy the numbers in excel to create the graph
+I change the line number and the memGen# run the code, and then copy the numbers in excel to create the graph
+project 2 analysis is the Excel sheet
